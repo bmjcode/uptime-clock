@@ -1,0 +1,6 @@
+*.a
+*.exe
+*.o
+*.swp
+pfactor
+primes
