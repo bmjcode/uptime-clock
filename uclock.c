@@ -199,7 +199,9 @@ ClockWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
                 case VK_ESCAPE:
                 case VK_CONTROL | 'q':
                 case VK_CONTROL | 'Q':
-                    // Close the window when Esc or Ctrl+Q is pressed
+                case VK_CONTROL | 'w':
+                case VK_CONTROL | 'W':
+                    // Close the window when Esc, Ctrl+Q, or Ctrl+W is pressed
                     DestroyWindow(hwnd);
                     return 0;
             }
