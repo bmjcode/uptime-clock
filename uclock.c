@@ -79,7 +79,7 @@ CreateClockWindow(HWND hwnd)
     window = malloc(sizeof(struct clock_window));
     memset(window, 0, sizeof(struct clock_window));
 
-    // Save a pointer to our window structure for ClockWindowProc()
+    // Point struct clock_window and the HWND to one another
     window->hwnd = hwnd;
     SetWindowLongPtr(window->hwnd, GWLP_USERDATA, (LONG_PTR) window);
 
@@ -166,6 +166,7 @@ DestroyClockWindow(struct clock_window *window)
     // Note that destroying a window also destroys its child windows,
     // so we don't have to clean all those up manually.
 
+    // Stop refreshing the display
     if (window->hwnd != NULL)
         KillTimer(window->hwnd, IDT_REFRESH);
 
@@ -408,6 +409,7 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         /* hInstance */     hInstance,
         /* lpParam */       NULL
     );
+
     if (hwndClockWindow == NULL)
         return 1;
 
