@@ -56,14 +56,65 @@ struct clock_window {
     HFONT hFontUptime;
 };
 
-static int CreateClockWindow(HWND hwnd);
-static void DestroyClockWindow(struct clock_window *window);
-
 static LRESULT CALLBACK ClockWindowProc(HWND hwnd, UINT uMsg,
                                         WPARAM wParam, LPARAM lParam);
+static int CreateClockWindow(HWND hwnd);
+static void DestroyClockWindow(struct clock_window *window);
 static void PaintClock(struct clock_window *window);
 static void RefreshClock(struct clock_window *window);
 static void ResizeClock(struct clock_window *window);
+
+/*
+ * Process clock window messages.
+ */
+LRESULT CALLBACK
+ClockWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    struct clock_window *window =
+        (uMsg == WM_CREATE) ? NULL :
+        (struct clock_window*) GetWindowLongPtr(hwnd, GWLP_USERDATA);
+
+    switch (uMsg) {
+        case WM_CREATE:
+            return CreateClockWindow(hwnd);
+
+        case WM_KEYDOWN:
+            switch (wParam) {
+                case VK_ESCAPE:
+                case VK_CONTROL | 'q':
+                case VK_CONTROL | 'Q':
+                case VK_CONTROL | 'w':
+                case VK_CONTROL | 'W':
+                    // Close the window when Esc, Ctrl+Q, or Ctrl+W is pressed
+                    DestroyWindow(hwnd);
+                    return 0;
+            }
+            break;
+
+        case WM_PAINT:
+            PaintClock(window);
+            return 0;
+
+        case WM_SIZE:
+            ResizeClock(window);
+            return 0;
+
+        case WM_TIMER:
+            switch (wParam) {
+                case IDT_REFRESH:
+                    RefreshClock(window);
+                    break;
+            }
+            return 0;
+
+        case WM_DESTROY:
+            DestroyClockWindow(window);
+            PostQuitMessage(0);
+            return 0;
+    }
+
+    return DefWindowProc(hwnd, uMsg, wParam, lParam);
+}
 
 /*
  * Create the clock window.
@@ -182,58 +233,6 @@ DestroyClockWindow(struct clock_window *window)
 }
 
 /*
- * Process clock window messages.
- */
-LRESULT CALLBACK
-ClockWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
-{
-    struct clock_window *window =
-        (uMsg == WM_CREATE) ? NULL :
-        (struct clock_window*) GetWindowLongPtr(hwnd, GWLP_USERDATA);
-
-    switch (uMsg) {
-        case WM_CREATE:
-            return CreateClockWindow(hwnd);
-
-        case WM_KEYDOWN:
-            switch (wParam) {
-                case VK_ESCAPE:
-                case VK_CONTROL | 'q':
-                case VK_CONTROL | 'Q':
-                case VK_CONTROL | 'w':
-                case VK_CONTROL | 'W':
-                    // Close the window when Esc, Ctrl+Q, or Ctrl+W is pressed
-                    DestroyWindow(hwnd);
-                    return 0;
-            }
-            break;
-
-        case WM_PAINT:
-            PaintClock(window);
-            return 0;
-
-        case WM_SIZE:
-            ResizeClock(window);
-            return 0;
-
-        case WM_TIMER:
-            switch (wParam) {
-                case IDT_REFRESH:
-                    RefreshClock(window);
-                    break;
-            }
-            return 0;
-
-        case WM_DESTROY:
-            DestroyClockWindow(window);
-            PostQuitMessage(0);
-            return 0;
-    }
-
-    return DefWindowProc(hwnd, uMsg, wParam, lParam);
-}
-
-/*
  * Paint the clock window.
  * Processes WM_PAINT for ClockWindowProc().
  */
@@ -249,6 +248,7 @@ PaintClock(struct clock_window *window)
 
 /*
  * Refresh the clock display.
+ * Processes WM_TIMER for ClockWindowProc().
  */
 void
 RefreshClock(struct clock_window *window)
