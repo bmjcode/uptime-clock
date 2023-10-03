@@ -44,7 +44,7 @@
 #define MSEC_PER_SEC 1000
 #define MSEC_PER_MIN ((MSEC_PER_SEC) * 60)
 #define MSEC_PER_HR ((MSEC_PER_MIN) * 60)
-#define MSEC_PER_DAY ((MSEC_PER_HR) * 60)
+#define MSEC_PER_DAY ((MSEC_PER_HR) * 24)
 
 // Structure to keep track of window elements
 struct clock_window {
