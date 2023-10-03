@@ -236,7 +236,7 @@ DestroyClockWindow(struct clock_window *window)
  * Paint the clock window.
  * Processes WM_PAINT for ClockWindowProc().
  */
-static void
+void
 PaintClock(struct clock_window *window)
 {
     PAINTSTRUCT ps;
