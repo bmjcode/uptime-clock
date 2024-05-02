@@ -20,22 +20,29 @@
  * gcc -Os -Wall -Werror -mwindows -o uclock.exe uclock.c
  */
 
+#ifdef UNICODE
+#  include <wchar.h>
+#  define SNPRINTF swprintf
+#  define STRFTIME wcsftime
+#else
+#  include <stdio.h>
+#  define SNPRINTF snprintf
+#  define STRFTIME strftime
+#endif
 #include <time.h>
-#include <wchar.h>
 
-#define UNICODE
 #include <windows.h>
 
 // Window class name
-#define CLASS_NAME L"Uptime Clock"
+#define CLASS_NAME TEXT("Uptime Clock")
 
 // Clock format: 03/30/2023 12:34:56 AM (22 chars)
-#define CLOCK_FMT L"%m/%d/%Y %I:%M:%S %p"
+#define CLOCK_FMT TEXT("%m/%d/%Y %I:%M:%S %p")
 
 // Uptime format: 365 d, 23 hr, 59 min, 59 sec (28 chars)
 // We're unlikely to see more than a three-digit day count. If Windows has
 // really been running that long without rebooting, we've got other problems.
-#define UPTIME_FMT L"%lld d, %lld hr, %lld min, %lld sec"
+#define UPTIME_FMT TEXT("%lld d, %lld hr, %lld min, %lld sec")
 
 // Timer numbers
 #define IDT_REFRESH 1
@@ -142,7 +149,7 @@ CreateClockWindow(HWND hwnd)
 
     window->hwndClock = CreateWindowEx(
         /* dwExStyle */     0,
-        /* lpClassName */   L"STATIC",
+        /* lpClassName */   TEXT("STATIC"),
         /* lpWindowName */  NULL,
         /* dwStyle */       WS_CHILD | WS_VISIBLE | SS_CENTER,
         /* pos, size */     0, 0, 0, 0,
@@ -153,8 +160,8 @@ CreateClockWindow(HWND hwnd)
     );
     window->hwndUptimeLabel = CreateWindowEx(
         /* dwExStyle */     0,
-        /* lpClassName */   L"STATIC",
-        /* lpWindowName */  L"System Uptime",
+        /* lpClassName */   TEXT("STATIC"),
+        /* lpWindowName */  TEXT("System Uptime"),
         /* dwStyle */       WS_CHILD | WS_VISIBLE | SS_CENTER,
         /* pos, size */     0, 0, 0, 0,
         /* hwndParent */    window->hwnd,
@@ -164,7 +171,7 @@ CreateClockWindow(HWND hwnd)
     );
     window->hwndUptime = CreateWindowEx(
         /* dwExStyle */     0,
-        /* lpClassName */   L"STATIC",
+        /* lpClassName */   TEXT("STATIC"),
         /* lpWindowName */  NULL,
         /* dwStyle */       WS_CHILD | WS_VISIBLE | SS_CENTER,
         /* pos, size */     0, 0, 0, 0,
@@ -252,7 +259,7 @@ LayOutClockWindow(HCLOCKWINDOW window)
         /* iClipPrecision */    CLIP_DEFAULT_PRECIS,
         /* iQuality */          DEFAULT_QUALITY,
         /* iPitchAndFamily */   FF_DONTCARE,
-        /* pszFaceName */       L"MS Shell Dlg"
+        /* pszFaceName */       TEXT("MS Shell Dlg")
     );
 
     SendMessage(window->hwndClock,
@@ -277,7 +284,7 @@ LayOutClockWindow(HCLOCKWINDOW window)
         /* iClipPrecision */    CLIP_DEFAULT_PRECIS,
         /* iQuality */          DEFAULT_QUALITY,
         /* iPitchAndFamily */   FF_DONTCARE,
-        /* pszFaceName */       L"MS Shell Dlg"
+        /* pszFaceName */       TEXT("MS Shell Dlg")
     );
 
     SendMessage(window->hwndUptimeLabel,
@@ -332,7 +339,7 @@ UpdateClock(HCLOCKWINDOW window)
 {
 #define BUF_LEN 29      // Large enough to hold either CLOCK_FMT or UPTIME_FMT
                         // plus a trailing '\0'
-    static wchar_t buf[BUF_LEN];
+    static TCHAR buf[BUF_LEN];
     time_t now;
     struct tm *timeinfo;
     unsigned long long ticks, days, hours, minutes, seconds;
@@ -342,7 +349,7 @@ UpdateClock(HCLOCKWINDOW window)
     time(&now);
     timeinfo = localtime(&now);
 
-    if (wcsftime(buf, BUF_LEN, CLOCK_FMT, timeinfo) != 0)
+    if (STRFTIME(buf, BUF_LEN, CLOCK_FMT, timeinfo) != 0)
         SetWindowText(window->hwndClock, buf);
 
     // Now do the uptime display
@@ -356,7 +363,7 @@ UpdateClock(HCLOCKWINDOW window)
     ticks %= MSEC_PER_MIN;
     seconds = ticks / MSEC_PER_SEC;
 
-    if (swprintf(buf, BUF_LEN,
+    if (SNPRINTF(buf, BUF_LEN,
                  UPTIME_FMT, days, hours, minutes, seconds) != 0)
         SetWindowText(window->hwndUptime, buf);
 #undef BUF_LEN
@@ -367,7 +374,7 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         LPSTR lpCmdLine, int nCmdShow)
 {
     HACCEL hAccTable;
-    WNDCLASSW wc = { };
+    WNDCLASS wc = { };
     MSG msg = { };
     HWND hwndClockWindow;
 
@@ -385,7 +392,7 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     hwndClockWindow = CreateWindowEx(
         /* dwExStyle */     0,
         /* lpClassName */   CLASS_NAME,
-        /* lpWindowName */  L"Uptime Clock",
+        /* lpWindowName */  TEXT("Uptime Clock"),
         /* dwStyle */       WS_OVERLAPPEDWINDOW,
         /* X */             CW_USEDEFAULT,
         /* Y */             CW_USEDEFAULT,

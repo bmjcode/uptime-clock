@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## [Unreleased]
 ### Changed
 * Increased the font size.
+* Re-wrote text handling to work both with and without Unicode support.
 * Significantly cleaned up the code:
   * Renamed several functions to more accurately describe what they do.
   * Used more Win32-like variable and type names like `HCLOCKWINDOW` instead of `struct clock_window*`.
