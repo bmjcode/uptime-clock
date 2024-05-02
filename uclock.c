@@ -69,6 +69,8 @@ static int CreateClockWindow(HWND hwnd);
 static void DestroyClockWindow(HCLOCKWINDOW window);
 static void LayOutClockWindow(HCLOCKWINDOW window);
 
+static void StartClock(HCLOCKWINDOW window);
+static void StopClock(HCLOCKWINDOW window);
 static void UpdateClock(HCLOCKWINDOW window);
 
 /*
@@ -105,6 +107,13 @@ ClockWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
             return 0;
 
+        case WM_SHOWWINDOW:
+            if (wParam)
+                StartClock(window);
+            else
+                StopClock(window);
+            return 0;
+
         case WM_DESTROY:
             DestroyClockWindow(window);
             PostQuitMessage(0);
@@ -122,7 +131,6 @@ int
 CreateClockWindow(HWND hwnd)
 {
     HCLOCKWINDOW window;
-    SYSTEMTIME lt;
 
     window = malloc(sizeof(CLOCKWINDOW));
     if (window == NULL)
@@ -174,16 +182,6 @@ CreateClockWindow(HWND hwnd)
 
     // Lay out widgets
     LayOutClockWindow(window);
-
-    // Synchronize the display within 10ms
-    do {
-        GetLocalTime(&lt);
-        Sleep(2);
-    } while (lt.wMilliseconds % 1000 > 10);
-
-    UpdateClock(window);
-    SetTimer(window->hwnd, IDT_REFRESH, 1000, (TIMERPROC) NULL);
-
     return 0;
 }
 
@@ -196,8 +194,7 @@ DestroyClockWindow(HCLOCKWINDOW window)
     if (window == NULL)
         return;
 
-    if (window->hwnd != NULL)
-        KillTimer(window->hwnd, IDT_REFRESH);
+    StopClock(window);
 
     if (window->hFontClock != NULL)
         DeleteObject(window->hFontClock);
@@ -294,6 +291,37 @@ LayOutClockWindow(HCLOCKWINDOW window)
     // Force redrawing the entire window area
     GetClientRect(window->hwnd, &rect);
     RedrawWindow(window->hwnd, &rect, NULL, RDW_ERASE | RDW_INVALIDATE);
+}
+
+/*
+ * Start the clock.
+ * Called when the clock window is about to be shown.
+ */
+void
+StartClock(HCLOCKWINDOW window)
+{
+    SYSTEMTIME lt;
+
+    // Synchronize the display within 10ms
+    do {
+        GetLocalTime(&lt);
+        Sleep(2);
+    } while (lt.wMilliseconds % 1000 > 10);
+
+    // Display the clock and set a timer to keep it updated
+    UpdateClock(window);
+    SetTimer(window->hwnd, IDT_REFRESH, 1000, (TIMERPROC) NULL);
+}
+
+/*
+ * Stop the clock.
+ * Called when the clock window is about to be hidden or destroyed.
+ */
+void
+StopClock(HCLOCKWINDOW window)
+{
+    if (window->hwnd != NULL)
+        KillTimer(window->hwnd, IDT_REFRESH);
 }
 
 /*

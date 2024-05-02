@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   * Used more Win32-like variable and type names like `HCLOCKWINDOW` instead of `struct clock_window*`.
   * Re-wrote `LayOutClockWindow()` to make it easier to understand.
 ### Fixed
+* Only update the clock when the window is shown.
 * Eliminated unnecessary re-drawing in `LayOutClockWindow()`.
 * Added a missing check after a memory allocation in `CreateClockWindow()`.
 * Cleaned up working but semantically-incorrect code, including:
