@@ -81,6 +81,18 @@ static void StopClock(HCLOCKWINDOW window);
 static void UpdateClock(HCLOCKWINDOW window);
 
 /*
+ * GetTickCount64() (available on Windows Vista and newer) is preferred
+ * because GetTickCount() overflows around 49.7 days, but we will fall back
+ * for compatiblity with older Windows versions. Plenty of legacy systems
+ * still run these obsolete OSes, and someone may find this tool useful for
+ * troubleshooting such a system.
+ */
+typedef unsigned long long (__cdecl *PROC_GTC64)(void);
+PROC_GTC64 pGetTickCount64;
+#define GetTickCount64OrOtherwise() \
+    ((pGetTickCount64 == NULL) ? GetTickCount() : pGetTickCount64())
+
+/*
  * Process clock window messages.
  */
 LRESULT CALLBACK
@@ -353,8 +365,7 @@ UpdateClock(HCLOCKWINDOW window)
         SetWindowText(window->hwndClock, buf);
 
     // Now do the uptime display
-    // GetTickCount64() returns the system uptime in milliseconds
-    ticks = GetTickCount64();
+    ticks = GetTickCount64OrOtherwise();
     days = ticks / MSEC_PER_DAY;
     ticks %= MSEC_PER_DAY;
     hours = ticks / MSEC_PER_HR;
@@ -373,10 +384,19 @@ int WINAPI
 WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         LPSTR lpCmdLine, int nCmdShow)
 {
+    HINSTANCE hinstKernel32;
     HACCEL hAccTable;
     WNDCLASS wc = { };
     MSG msg = { };
     HWND hwndClockWindow;
+
+    // Dynamically load GetTickCount64()
+    // (available on Windows Vista and newer)
+    hinstKernel32 = LoadLibrary(TEXT("kernel32.dll"));
+    pGetTickCount64 =
+        (hinstKernel32 == NULL)
+        ? NULL
+        : (PROC_GTC64) GetProcAddress(hinstKernel32, "GetTickCount64");
 
     // Create the accelerator table
     hAccTable = CreateAcceleratorTable(accel, cAccel);
@@ -429,5 +449,7 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
     // Clean up and exit
     DestroyAcceleratorTable(hAccTable);
+    if (hinstKernel32 != NULL)
+        FreeLibrary(hinstKernel32);
     return 0;
 }
