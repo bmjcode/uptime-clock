@@ -217,8 +217,8 @@ LayOutClockWindow(HCLOCKWINDOW window)
     GetClientRect(window->hwnd, &rect);
 
     // Scale the font size with the window height
-    cHeightClock = rect.bottom / 12;
-    cHeightUptime = rect.bottom / 16;
+    cHeightClock = rect.bottom / 8;
+    cHeightUptime = rect.bottom / 12;
 
     // Center the clock display vertically in the window
     cHeightDisplay = cHeightClock + 3 * cHeightUptime;
