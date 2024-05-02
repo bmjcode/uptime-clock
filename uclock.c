@@ -17,7 +17,7 @@
 
 /*
  * To compile:
- * gcc -Os -mwindows -o uclock.exe uclock.c
+ * gcc -Os -Wall -Werror -mwindows -o uclock.exe uclock.c
  */
 
 #include <time.h>
@@ -33,8 +33,8 @@
 #define CLOCK_FMT L"%m/%d/%Y %I:%M:%S %p"
 
 // Uptime format: 365 d, 23 hr, 59 min, 59 sec (28 chars)
-// We're unlikely to see more than a three-digit day count, and if Windows
-// has been running that long without rebooting, we've got other problems.
+// We're unlikely to see more than a three-digit day count. If Windows has
+// really been running that long without rebooting, we've got other problems.
 #define UPTIME_FMT L"%lld d, %lld hr, %lld min, %lld sec"
 
 // Timer numbers
@@ -46,23 +46,30 @@
 #define MSEC_PER_HR ((MSEC_PER_MIN) * 60)
 #define MSEC_PER_DAY ((MSEC_PER_HR) * 24)
 
+// Keyboard accelerators
+#define cAccel 2
+ACCEL accel[] = {
+    { FVIRTKEY,             VK_ESCAPE,  IDCANCEL },
+    { FCONTROL | FVIRTKEY,  'W',        IDCANCEL },
+};
+
 // Structure to keep track of window elements
-struct clock_window {
+typedef struct tagCLOCKWINDOW {
     HWND hwnd;
     HWND hwndClock;
     HWND hwndUptimeLabel;
     HWND hwndUptime;
     HFONT hFontClock;
     HFONT hFontUptime;
-};
+} CLOCKWINDOW, *HCLOCKWINDOW;
 
 static LRESULT CALLBACK ClockWindowProc(HWND hwnd, UINT uMsg,
                                         WPARAM wParam, LPARAM lParam);
 static int CreateClockWindow(HWND hwnd);
-static void DestroyClockWindow(struct clock_window *window);
-static void PaintClock(struct clock_window *window);
-static void RefreshClock(struct clock_window *window);
-static void ResizeClock(struct clock_window *window);
+static void DestroyClockWindow(HCLOCKWINDOW window);
+static void LayOutClockWindow(HCLOCKWINDOW window);
+
+static void UpdateClock(HCLOCKWINDOW window);
 
 /*
  * Process clock window messages.
@@ -70,39 +77,30 @@ static void ResizeClock(struct clock_window *window);
 LRESULT CALLBACK
 ClockWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    struct clock_window *window =
+    HCLOCKWINDOW window =
         (uMsg == WM_CREATE) ? NULL :
-        (struct clock_window*) GetWindowLongPtr(hwnd, GWLP_USERDATA);
+        (HCLOCKWINDOW) GetWindowLongPtr(hwnd, GWLP_USERDATA);
 
     switch (uMsg) {
         case WM_CREATE:
             return CreateClockWindow(hwnd);
 
-        case WM_KEYDOWN:
-            switch (wParam) {
-                case VK_ESCAPE:
-                case VK_CONTROL | 'q':
-                case VK_CONTROL | 'Q':
-                case VK_CONTROL | 'w':
-                case VK_CONTROL | 'W':
-                    // Close the window when Esc, Ctrl+Q, or Ctrl+W is pressed
+        case WM_COMMAND:
+            switch (LOWORD(wParam)) {
+                case IDCANCEL:
                     DestroyWindow(hwnd);
                     return 0;
             }
             break;
 
-        case WM_PAINT:
-            PaintClock(window);
-            return 0;
-
         case WM_SIZE:
-            ResizeClock(window);
+            LayOutClockWindow(window);
             return 0;
 
         case WM_TIMER:
             switch (wParam) {
                 case IDT_REFRESH:
-                    RefreshClock(window);
+                    UpdateClock(window);
                     break;
             }
             return 0;
@@ -118,19 +116,19 @@ ClockWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 /*
  * Create the clock window.
- * Processes WM_CREATE for ClockWindowProc().
  * Returns 0 on success, -1 on failure.
  */
 int
 CreateClockWindow(HWND hwnd)
 {
-    struct clock_window *window;
+    HCLOCKWINDOW window;
     SYSTEMTIME lt;
 
-    window = malloc(sizeof(struct clock_window));
-    memset(window, 0, sizeof(struct clock_window));
+    window = malloc(sizeof(CLOCKWINDOW));
+    if (window == NULL)
+        return -1;
+    memset(window, 0, sizeof(CLOCKWINDOW));
 
-    // Point struct clock_window and the HWND to one another
     window->hwnd = hwnd;
     SetWindowLongPtr(window->hwnd, GWLP_USERDATA, (LONG_PTR) window);
 
@@ -138,61 +136,44 @@ CreateClockWindow(HWND hwnd)
         /* dwExStyle */     0,
         /* lpClassName */   L"STATIC",
         /* lpWindowName */  NULL,
-        /* dwStyle */       WS_CHILD | SS_CENTER,
-        /* X */             CW_USEDEFAULT,
-        /* Y */             CW_USEDEFAULT,
-        /* nWidth */        CW_USEDEFAULT,
-        /* nHeight */       CW_USEDEFAULT,
+        /* dwStyle */       WS_CHILD | WS_VISIBLE | SS_CENTER,
+        /* pos, size */     0, 0, 0, 0,
         /* hwndParent */    window->hwnd,
         /* hMenu */         NULL,
         /* hInstance */     NULL,
         /* lpParam */       NULL
     );
-
-    if (window->hwndClock == NULL)
-        return -1;
-
     window->hwndUptimeLabel = CreateWindowEx(
         /* dwExStyle */     0,
         /* lpClassName */   L"STATIC",
         /* lpWindowName */  L"System Uptime",
-        /* dwStyle */       WS_CHILD | SS_CENTER,
-        /* X */             CW_USEDEFAULT,
-        /* Y */             CW_USEDEFAULT,
-        /* nWidth */        CW_USEDEFAULT,
-        /* nHeight */       CW_USEDEFAULT,
+        /* dwStyle */       WS_CHILD | WS_VISIBLE | SS_CENTER,
+        /* pos, size */     0, 0, 0, 0,
         /* hwndParent */    window->hwnd,
         /* hMenu */         NULL,
         /* hInstance */     NULL,
         /* lpParam */       NULL
     );
-
-    if (window->hwndUptimeLabel == NULL)
-        return -1;
-
     window->hwndUptime = CreateWindowEx(
         /* dwExStyle */     0,
         /* lpClassName */   L"STATIC",
         /* lpWindowName */  NULL,
-        /* dwStyle */       WS_CHILD | SS_CENTER,
-        /* X */             CW_USEDEFAULT,
-        /* Y */             CW_USEDEFAULT,
-        /* nWidth */        CW_USEDEFAULT,
-        /* nHeight */       CW_USEDEFAULT,
+        /* dwStyle */       WS_CHILD | WS_VISIBLE | SS_CENTER,
+        /* pos, size */     0, 0, 0, 0,
         /* hwndParent */    window->hwnd,
         /* hMenu */         NULL,
         /* hInstance */     NULL,
         /* lpParam */       NULL
     );
 
-    if (window->hwndUptime == NULL)
+    // Make sure all our widgets exist
+    if ((window->hwndClock == NULL)
+        || (window->hwndUptimeLabel == NULL)
+        || (window->hwndUptime == NULL))
         return -1;
 
-    // Size display widgets
-    ResizeClock(window);
-    ShowWindow(window->hwndClock, SW_SHOW);
-    ShowWindow(window->hwndUptimeLabel, SW_SHOW);
-    ShowWindow(window->hwndUptime, SW_SHOW);
+    // Lay out widgets
+    LayOutClockWindow(window);
 
     // Synchronize the display within 10ms
     do {
@@ -200,8 +181,7 @@ CreateClockWindow(HWND hwnd)
         Sleep(2);
     } while (lt.wMilliseconds % 1000 > 10);
 
-    // Display the clock and set a timer to keep it updated
-    RefreshClock(window);
+    UpdateClock(window);
     SetTimer(window->hwnd, IDT_REFRESH, 1000, (TIMERPROC) NULL);
 
     return 0;
@@ -209,123 +189,55 @@ CreateClockWindow(HWND hwnd)
 
 /*
  * Destroy the clock window.
- * Processes WM_DESTROY for ClockWindowProc().
  */
 void
-DestroyClockWindow(struct clock_window *window)
+DestroyClockWindow(HCLOCKWINDOW window)
 {
-    // Note that destroying a window also destroys its child windows,
-    // so we don't have to clean all those up manually.
+    if (window == NULL)
+        return;
 
-    // Stop refreshing the display
     if (window->hwnd != NULL)
         KillTimer(window->hwnd, IDT_REFRESH);
 
-    // Delete the fonts after all window objects using them are gone
     if (window->hFontClock != NULL)
         DeleteObject(window->hFontClock);
     if (window->hFontUptime != NULL)
         DeleteObject(window->hFontUptime);
-
-    // Delete the window structure last
-    if (window != NULL)
-        free(window);
+    free(window);
 }
 
 /*
- * Paint the clock window.
- * Processes WM_PAINT for ClockWindowProc().
+ * Lay out the clock display.
+ * Called when the clock window is created or resized.
  */
 void
-PaintClock(struct clock_window *window)
+LayOutClockWindow(HCLOCKWINDOW window)
 {
-    PAINTSTRUCT ps;
-    HDC hdc = BeginPaint(window->hwnd, &ps);
-
-    FillRect(hdc, &ps.rcPaint, (HBRUSH) (COLOR_3DFACE + 1));
-    EndPaint(window->hwnd, &ps);
-}
-
-/*
- * Refresh the clock display.
- * Processes WM_TIMER for ClockWindowProc().
- */
-void
-RefreshClock(struct clock_window *window)
-{
-#define BUF_LEN 29      // Large enough to hold both CLOCK_FMT and UPTIME_FMT
-                        // plus a trailing '\0'
-    static wchar_t buf[BUF_LEN];
-    time_t now;
-    struct tm *timeinfo;
-    unsigned long long ticks, days, hours, minutes, seconds;
-
-    // Refresh the clock display
-    // Don't free timeinfo -- it's a pointer to static memory
-    time(&now);
-    timeinfo = localtime(&now);
-
-    if (wcsftime(buf, BUF_LEN, CLOCK_FMT, timeinfo) != 0)
-        SetWindowText(window->hwndClock, buf);
-
-    // Refresh the uptime display
-    // GetTickCount64() returns the system uptime in milliseconds
-    ticks = GetTickCount64();
-    days = ticks / MSEC_PER_DAY;
-    ticks %= MSEC_PER_DAY;
-    hours = ticks / MSEC_PER_HR;
-    ticks %= MSEC_PER_HR;
-    minutes = ticks / MSEC_PER_MIN;
-    ticks %= MSEC_PER_MIN;
-    seconds = ticks / MSEC_PER_SEC;
-
-    if (swprintf(buf, BUF_LEN,
-                 UPTIME_FMT, days, hours, minutes, seconds) != 0)
-        SetWindowText(window->hwndUptime, buf);
-#undef BUF_LEN
-}
-
-/*
- * Resize the clock display.
- * Processes WM_SIZE for ClockWindowProc().
- */
-void
-ResizeClock(struct clock_window *window)
-{
-    int cHeightClock, cHeightUptime, width, height, yPos;
+    int cHeightClock, cHeightUptime, cHeightDisplay;
     RECT rect;
     HFONT hOldFont;
 
     GetClientRect(window->hwnd, &rect);
-    width = rect.right - rect.left;
-    height = rect.bottom - rect.top;
 
-    // Force redrawing the entire window area
-    RedrawWindow(window->hwnd, &rect, NULL, RDW_ERASE | RDW_INVALIDATE);
-
-    // Clock and uptime fonts:
-    // 1/12 and 1/16 of the window height, respectively
-    cHeightClock = height / 12;
-    cHeightUptime = height / 16;
+    // Scale the font size with the window height
+    cHeightClock = rect.bottom / 12;
+    cHeightUptime = rect.bottom / 16;
 
     // Center the clock display vertically in the window
-    // Format:
-    // hwndClock        - cHeightClock
-    // (blank line)     - CHeightUptime
-    // hwndUptimeLabel  - cHeightUptime
-    // hwndUptime       - cHeightUptime
-    yPos = (rect.bottom - rect.top - cHeightClock - (3 * cHeightUptime)) / 2;
+    cHeightDisplay = cHeightClock + 3 * cHeightUptime;
+    rect.top += (rect.bottom - cHeightDisplay) / 2;
 
+    // Use a larger font for the time and date, and add a blank line after it
     MoveWindow(window->hwndClock,
-               rect.left, yPos, width, cHeightClock, TRUE);
-    yPos += cHeightClock + cHeightUptime;
+               rect.left, rect.top, rect.right, cHeightClock, FALSE);
+    rect.top += cHeightClock + cHeightUptime;
 
     MoveWindow(window->hwndUptimeLabel,
-               rect.left, yPos, width, cHeightUptime, TRUE);
-    yPos += cHeightUptime;
+               rect.left, rect.top, rect.right, cHeightUptime, FALSE);
+    rect.top += cHeightUptime;
 
     MoveWindow(window->hwndUptime,
-               rect.left, yPos, width, cHeightUptime, TRUE);
+               rect.left, rect.top, rect.right, cHeightUptime, FALSE);
 
     // Swap out the clock font
     hOldFont = window->hFontClock;
@@ -347,7 +259,7 @@ ResizeClock(struct clock_window *window)
     );
 
     SendMessage(window->hwndClock,
-                WM_SETFONT, (WPARAM) window->hFontClock, (LPARAM) NULL);
+                WM_SETFONT, (WPARAM) window->hFontClock, (LPARAM) FALSE);
 
     if (hOldFont != NULL)
         DeleteObject(hOldFont);
@@ -372,25 +284,72 @@ ResizeClock(struct clock_window *window)
     );
 
     SendMessage(window->hwndUptimeLabel,
-                WM_SETFONT, (WPARAM) window->hFontUptime, (LPARAM) NULL);
+                WM_SETFONT, (WPARAM) window->hFontUptime, (LPARAM) FALSE);
     SendMessage(window->hwndUptime,
-                WM_SETFONT, (WPARAM) window->hFontUptime, (LPARAM) NULL);
+                WM_SETFONT, (WPARAM) window->hFontUptime, (LPARAM) FALSE);
 
     if (hOldFont != NULL)
         DeleteObject(hOldFont);
+
+    // Force redrawing the entire window area
+    GetClientRect(window->hwnd, &rect);
+    RedrawWindow(window->hwnd, &rect, NULL, RDW_ERASE | RDW_INVALIDATE);
+}
+
+/*
+ * Update the clock display.
+ */
+void
+UpdateClock(HCLOCKWINDOW window)
+{
+#define BUF_LEN 29      // Large enough to hold either CLOCK_FMT or UPTIME_FMT
+                        // plus a trailing '\0'
+    static wchar_t buf[BUF_LEN];
+    time_t now;
+    struct tm *timeinfo;
+    unsigned long long ticks, days, hours, minutes, seconds;
+
+    // Update the clock display
+    // Don't free timeinfo -- it's a pointer to static memory
+    time(&now);
+    timeinfo = localtime(&now);
+
+    if (wcsftime(buf, BUF_LEN, CLOCK_FMT, timeinfo) != 0)
+        SetWindowText(window->hwndClock, buf);
+
+    // Now do the uptime display
+    // GetTickCount64() returns the system uptime in milliseconds
+    ticks = GetTickCount64();
+    days = ticks / MSEC_PER_DAY;
+    ticks %= MSEC_PER_DAY;
+    hours = ticks / MSEC_PER_HR;
+    ticks %= MSEC_PER_HR;
+    minutes = ticks / MSEC_PER_MIN;
+    ticks %= MSEC_PER_MIN;
+    seconds = ticks / MSEC_PER_SEC;
+
+    if (swprintf(buf, BUF_LEN,
+                 UPTIME_FMT, days, hours, minutes, seconds) != 0)
+        SetWindowText(window->hwndUptime, buf);
+#undef BUF_LEN
 }
 
 int WINAPI
 WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
-        PSTR lpCmdLine, int nCmdShow)
+        LPSTR lpCmdLine, int nCmdShow)
 {
+    HACCEL hAccTable;
     WNDCLASSW wc = { };
     MSG msg = { };
     HWND hwndClockWindow;
 
+    // Create the accelerator table
+    hAccTable = CreateAcceleratorTable(accel, cAccel);
+
     // Register the Uptime Clock window class
     wc.lpfnWndProc = ClockWindowProc;
     wc.hInstance = hInstance;
+    wc.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
     wc.lpszClassName = CLASS_NAME;
     RegisterClass(&wc);
 
@@ -424,14 +383,16 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
     // Run the message loop
     while (GetMessage(&msg, NULL, 0, 0) > 0) {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
+        if (!TranslateAccelerator(hwndClockWindow, hAccTable, &msg)) {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
     }
 
     // Allow screen blanking and sleep timeouts
     SetThreadExecutionState(ES_CONTINUOUS);
 
     // Clean up and exit
-    DestroyWindow(hwndClockWindow);
+    DestroyAcceleratorTable(hAccTable);
     return 0;
 }
