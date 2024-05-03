@@ -93,6 +93,13 @@ PROC_GTC64 pGetTickCount64;
     ((pGetTickCount64 == NULL) ? GetTickCount() : pGetTickCount64())
 
 /*
+ * SetThreadExecutionState() (available on Windows XP and newer) is
+ * also nice to have, but we can function without it.
+ */
+typedef EXECUTION_STATE (__cdecl *PROC_STES)(EXECUTION_STATE);
+PROC_STES pSetThreadExecutionState;
+
+/*
  * Process clock window messages.
  */
 LRESULT CALLBACK
@@ -390,13 +397,17 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     MSG msg = { };
     HWND hwndClockWindow;
 
-    // Dynamically load GetTickCount64()
-    // (available on Windows Vista and newer)
+    // Dynamically load functions added in newer Windows versions
     hinstKernel32 = LoadLibrary(TEXT("kernel32.dll"));
-    pGetTickCount64 =
-        (hinstKernel32 == NULL)
-        ? NULL
-        : (PROC_GTC64) GetProcAddress(hinstKernel32, "GetTickCount64");
+    if (hinstKernel32 == NULL) {
+        pGetTickCount64 = NULL;
+        pSetThreadExecutionState = NULL;
+    } else {
+        pGetTickCount64 = (PROC_GTC64)
+            GetProcAddress(hinstKernel32, "GetTickCount64");
+        pSetThreadExecutionState = (PROC_STES)
+            GetProcAddress(hinstKernel32, "SetThreadExecutionState");
+    }
 
     // Create the accelerator table
     hAccTable = CreateAcceleratorTable(accel, cAccel);
@@ -428,9 +439,10 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         return 1;
 
     // Block screen blanking and sleep timeouts
-    SetThreadExecutionState(ES_DISPLAY_REQUIRED
-                            | ES_SYSTEM_REQUIRED
-                            | ES_CONTINUOUS);
+    if (pSetThreadExecutionState != NULL)
+        pSetThreadExecutionState(ES_DISPLAY_REQUIRED
+                                 | ES_SYSTEM_REQUIRED
+                                 | ES_CONTINUOUS);
 
     // Show the clock window
     ShowWindow(hwndClockWindow, nCmdShow);
@@ -445,7 +457,8 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     }
 
     // Allow screen blanking and sleep timeouts
-    SetThreadExecutionState(ES_CONTINUOUS);
+    if (pSetThreadExecutionState != NULL)
+        pSetThreadExecutionState(ES_CONTINUOUS);
 
     // Clean up and exit
     DestroyAcceleratorTable(hAccTable);
