@@ -21,7 +21,7 @@
  */
 
 #define WINVER 0x400        // Windows 95
-#define _WIN32_WINNT 0x600  // Windows XP (for EXECUTION_STATE)
+#define _WIN32_WINNT 0x501  // Windows XP (for EXECUTION_STATE)
 #include <windows.h>
 
 #ifdef UNICODE
