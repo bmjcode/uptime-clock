@@ -20,6 +20,10 @@
  * gcc -Os -Wall -Werror -mwindows -o uclock.exe uclock.c
  */
 
+#define WINVER 0x400        // Windows 95
+#define _WIN32_WINNT 0x600  // Windows XP (for EXECUTION_STATE)
+#include <windows.h>
+
 #ifdef UNICODE
 #  include <wchar.h>
 #  define SNPRINTF swprintf
@@ -32,8 +36,6 @@
 #  define STRLEN   strlen
 #endif
 #include <time.h>
-
-#include <windows.h>
 
 // Window class name
 #define CLASS_NAME TEXT("Uptime Clock")
