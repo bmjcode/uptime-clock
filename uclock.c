@@ -272,7 +272,7 @@ PaintClockWindow(HCLOCKWINDOW window)
         /* iCharSet */          DEFAULT_CHARSET,
         /* iOutPrecision */     OUT_DEFAULT_PRECIS,
         /* iClipPrecision */    CLIP_DEFAULT_PRECIS,
-        /* iQuality */         DEFAULT_QUALITY,
+        /* iQuality */          DEFAULT_QUALITY,
         /* iPitchAndFamily */   FF_DONTCARE,
         /* pszFaceName */       TEXT("MS Shell Dlg")
     );
