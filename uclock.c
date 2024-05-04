@@ -1,6 +1,6 @@
 /*
  * Clock with system uptime display.
- * Copyright (c) 2023 Benjamin Johnson <bmjcode@gmail.com>
+ * Copyright (c) 2023, 2024 Benjamin Johnson <bmjcode@gmail.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
