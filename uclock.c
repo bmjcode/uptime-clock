@@ -400,11 +400,17 @@ int WINAPI
 WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         LPSTR lpCmdLine, int nCmdShow)
 {
+    int retval = 0;
     HINSTANCE hinstKernel32;
     HACCEL hAccTable;
     WNDCLASS wc = { };
     MSG msg = { };
     HWND hwndClockWindow;
+
+    // Initialize handles to NULL for safety
+    hinstKernel32 = NULL;
+    hAccTable = NULL;
+    hwndClockWindow = NULL;
 
     // Dynamically load functions added in newer Windows versions
     hinstKernel32 = LoadLibrary(TEXT("kernel32.dll"));
@@ -420,6 +426,10 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
     // Create the accelerator table
     hAccTable = CreateAcceleratorTable(accel, cAccel);
+    if (hAccTable == NULL) {
+        retval = 1;
+        goto cleanup;
+    }
 
     // Register the Uptime Clock window class
     wc.lpfnWndProc = ClockWindowProc;
@@ -444,8 +454,10 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         /* lpParam */       NULL
     );
 
-    if (hwndClockWindow == NULL)
-        return 1;
+    if (hwndClockWindow == NULL) {
+        retval = 1;
+        goto cleanup;
+    }
 
     // Block screen blanking and sleep timeouts
     if (pSetThreadExecutionState != NULL)
@@ -469,9 +481,10 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     if (pSetThreadExecutionState != NULL)
         pSetThreadExecutionState(ES_CONTINUOUS);
 
+cleanup:
     // Clean up and exit
     DestroyAcceleratorTable(hAccTable);
     if (hinstKernel32 != NULL)
         FreeLibrary(hinstKernel32);
-    return 0;
+    return retval;
 }
