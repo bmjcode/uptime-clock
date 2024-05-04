@@ -285,12 +285,12 @@ PaintClockWindow(HCLOCKWINDOW window)
     y = (rect.bottom - displayHeight) / 2;
 
     // Fill the window with the background color
-    FillRect(memDC, &rect, GetSysColorBrush(COLOR_WINDOW));
+    FillRect(memDC, &rect, GetSysColorBrush(COLOR_BTNFACE));
 
     // Set text alignment and colors
     SetTextAlign(memDC, TA_TOP | TA_CENTER | TA_NOUPDATECP);
-    SetTextColor(memDC, GetSysColor(COLOR_WINDOWTEXT));
-    SetBkColor(memDC, GetSysColor(COLOR_WINDOW));
+    SetTextColor(memDC, GetSysColor(COLOR_BTNTEXT));
+    SetBkColor(memDC, GetSysColor(COLOR_BTNFACE));
     SetBkMode(memDC, TRANSPARENT);
 
     // Display the date and time
