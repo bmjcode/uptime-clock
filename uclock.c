@@ -211,7 +211,8 @@ PaintClockWindow(HCLOCKWINDOW window)
     RECT rect;
     PAINTSTRUCT ps;
     HDC hdc, memDC;
-    HBITMAP memBM;
+    HBITMAP memBM, oldBM;
+    HGDIOBJ hOldObj;
     HFONT hFontClock, hFontUptime;
     int cHeightClock, cHeightUptime;
     long x, y, displayHeight;
@@ -220,6 +221,8 @@ PaintClockWindow(HCLOCKWINDOW window)
     hdc = NULL;
     memDC = NULL;
     memBM = NULL;
+    oldBM = NULL;
+    hOldObj = NULL;
     hFontClock = NULL;
     hFontUptime = NULL;
 
@@ -239,7 +242,7 @@ PaintClockWindow(HCLOCKWINDOW window)
     memBM = CreateCompatibleBitmap(hdc, rect.right, rect.bottom);
     if (memBM == NULL)
         goto cleanup;
-    SelectObject(memDC, memBM);
+    oldBM = SelectObject(memDC, memBM);
 
     // Scale the font size with the window height
     cHeightClock = rect.bottom / 8;
@@ -294,20 +297,23 @@ PaintClockWindow(HCLOCKWINDOW window)
     SetBkMode(memDC, TRANSPARENT);
 
     // Display the date and time
-    SelectObject(memDC, hFontClock);
+    hOldObj = SelectObject(memDC, hFontClock);
     TextOut(memDC, x, y, window->szClock, STRLEN(window->szClock));
     y += cHeightClock + cHeightUptime;
+    SelectObject(memDC, hOldObj);
 
     // Display the system uptime
-    SelectObject(memDC, hFontUptime);
+    hOldObj = SelectObject(memDC, hFontUptime);
     TextOut(memDC, x, y, UPTIME_LABEL, UPTIME_LABEL_LEN);
     y += cHeightUptime;
     TextOut(memDC, x, y, window->szUptime, STRLEN(window->szUptime));
+    SelectObject(memDC, hOldObj);
 
     // Blit our changes back into the window's device context
     BitBlt(hdc, 0, 0, rect.right, rect.bottom, memDC, 0, 0, SRCCOPY);
 
 cleanup:
+    SelectObject(memDC, oldBM);
     DeleteDC(memDC);
     DeleteObject(hFontUptime);
     DeleteObject(hFontClock);
