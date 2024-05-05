@@ -54,7 +54,7 @@
 #define UPTIME_LEN 28
 
 // Label for the uptime display
-#define UPTIME_LABEL TEXT("System Uptime")
+#define UPTIME_LABEL     TEXT("System Uptime")
 #define UPTIME_LABEL_LEN 13
 
 // Timer numbers
@@ -63,8 +63,8 @@
 // Unit conversions
 #define MSEC_PER_SEC 1000
 #define MSEC_PER_MIN ((MSEC_PER_SEC) * 60)
-#define MSEC_PER_HR ((MSEC_PER_MIN) * 60)
-#define MSEC_PER_DAY ((MSEC_PER_HR) * 24)
+#define MSEC_PER_HR  ((MSEC_PER_MIN) * 60)
+#define MSEC_PER_DAY ((MSEC_PER_HR)  * 24)
 
 // Keyboard accelerators
 #define cAccel 2
