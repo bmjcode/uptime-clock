@@ -439,6 +439,7 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     wc.style |= CS_HREDRAW | CS_VREDRAW; // redraw everything when resized
     wc.lpfnWndProc = ClockWindowProc;
     wc.hInstance = hInstance;
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
     wc.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
     wc.lpszClassName = CLASS_NAME;
     RegisterClass(&wc);
