@@ -20,9 +20,13 @@
  * gcc -Os -Wall -Werror -mwindows -o uclock.exe uclock.c
  */
 
-#define WINVER 0x400        // Windows 95
-#define _WIN32_WINNT 0x501  // Windows XP (for EXECUTION_STATE)
+#define WINVER 0x400        // Windows 95 features
+#define _WIN32_WINNT 0x501  // Windows XP features (for EXECUTION_STATE)
 #include <windows.h>
+
+#include <stdlib.h> // for malloc() and free()
+#include <string.h> // for memset()
+#include <time.h>   // for time() and localtime()
 
 #ifdef UNICODE
 #  include <wchar.h>
@@ -35,7 +39,6 @@
 #  define STRFTIME strftime
 #  define STRLEN   strlen
 #endif
-#include <time.h>
 
 // Window class name
 #define CLASS_NAME TEXT("Uptime Clock")
