@@ -88,7 +88,6 @@ static void PaintClockWindow(HCLOCKWINDOW window);
 
 static void StartClock(HCLOCKWINDOW window);
 static void StopClock(HCLOCKWINDOW window);
-static void RedrawClock(HCLOCKWINDOW window);
 static void UpdateClock(HCLOCKWINDOW window);
 
 /*
@@ -132,12 +131,13 @@ ClockWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
             }
             break;
 
+        case WM_ERASEBKGND:
+            // Just say we did; we actually do this in PaintClockWindow()
+            // when we receive WM_PAINT.
+            return 1;
+
         case WM_PAINT:
             PaintClockWindow(window);
-            return 0;
-
-        case WM_SIZE:
-            RedrawClock(window);
             return 0;
 
         case WM_TIMER:
@@ -199,8 +199,6 @@ DestroyClockWindow(HCLOCKWINDOW window)
 
 /*
  * Paint the clock window.
- * This is the handler for the WM_PAINT message; if you need to retrigger
- * painting manually, use RedrawClock().
  *
  * We draw text directly on the window rather than use static controls
  * to prevent flicker caused by SetWindowText() erasing and redrawing the
@@ -363,19 +361,6 @@ StopClock(HCLOCKWINDOW window)
 }
 
 /*
- * Redraw the clock window without updating the time.
- */
-void
-RedrawClock(HCLOCKWINDOW window)
-{
-    RECT rect;
-
-    // Force repainting the window
-    GetClientRect(window->hwnd, &rect);
-    RedrawWindow(window->hwnd, &rect, NULL, RDW_INVALIDATE);
-}
-
-/*
  * Update the clock display.
  */
 void
@@ -384,6 +369,7 @@ UpdateClock(HCLOCKWINDOW window)
     time_t now;
     struct tm *timeinfo;
     unsigned long long ticks, days, hours, minutes, seconds;
+    RECT rect;
 
     // Update the date and time
     // Don't free timeinfo -- it's a pointer to static memory
@@ -409,7 +395,9 @@ UpdateClock(HCLOCKWINDOW window)
                  UPTIME_FMT, days, hours, minutes, seconds) == 0)
         return;
 
-    RedrawClock(window);
+    // Force repainting the window
+    GetClientRect(window->hwnd, &rect);
+    RedrawWindow(window->hwnd, &rect, NULL, RDW_INVALIDATE);
 }
 
 int WINAPI
@@ -448,6 +436,7 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     }
 
     // Register the Uptime Clock window class
+    wc.style |= CS_HREDRAW | CS_VREDRAW; // redraw everything when resized
     wc.lpfnWndProc = ClockWindowProc;
     wc.hInstance = hInstance;
     wc.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
