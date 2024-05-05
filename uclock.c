@@ -409,12 +409,12 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     HACCEL hAccTable;
     WNDCLASS wc = { };
     MSG msg = { };
-    HWND hwndClockWindow;
+    HWND hwndClock;
 
     // Initialize handles to NULL for safety
     hinstKernel32 = NULL;
     hAccTable = NULL;
-    hwndClockWindow = NULL;
+    hwndClock = NULL;
 
     // Dynamically load functions added in newer Windows versions
     hinstKernel32 = LoadLibrary(TEXT("kernel32.dll"));
@@ -445,7 +445,7 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
     RegisterClass(&wc);
 
     // Create the clock window
-    hwndClockWindow = CreateWindowEx(
+    hwndClock = CreateWindowEx(
         /* dwExStyle */     0,
         /* lpClassName */   CLASS_NAME,
         /* lpWindowName */  TEXT("Uptime Clock"),
@@ -460,7 +460,7 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
         /* lpParam */       NULL
     );
 
-    if (hwndClockWindow == NULL) {
+    if (hwndClock == NULL) {
         retval = 1;
         goto cleanup;
     }
@@ -472,12 +472,12 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
                                  | ES_CONTINUOUS);
 
     // Show the clock window
-    ShowWindow(hwndClockWindow, nCmdShow);
-    SetForegroundWindow(hwndClockWindow);
+    ShowWindow(hwndClock, nCmdShow);
+    SetForegroundWindow(hwndClock);
 
     // Run the message loop
     while (GetMessage(&msg, NULL, 0, 0) > 0) {
-        if (!TranslateAccelerator(hwndClockWindow, hAccTable, &msg)) {
+        if (!TranslateAccelerator(hwndClock, hAccTable, &msg)) {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
