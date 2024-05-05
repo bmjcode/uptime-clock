@@ -216,7 +216,7 @@ PaintClockWindow(HCLOCKWINDOW window)
     HDC hdc, memDC;
     HBITMAP memBM, oldBM;
     HGDIOBJ hOldObj;
-    HFONT hFontClock, hFontUptime;
+    HFONT hFont;
     int cHeightClock, cHeightUptime;
     long x, y, displayHeight;
 
@@ -226,8 +226,7 @@ PaintClockWindow(HCLOCKWINDOW window)
     memBM = NULL;
     oldBM = NULL;
     hOldObj = NULL;
-    hFontClock = NULL;
-    hFontUptime = NULL;
+    hFont = NULL;
 
     // Get the window area
     // Bottom and right coordinates are our height and width, respectively
@@ -247,10 +246,26 @@ PaintClockWindow(HCLOCKWINDOW window)
         goto cleanup;
     oldBM = SelectObject(memDC, memBM);
 
+    // Fill the window with the background color
+    FillRect(memDC, &rect, GetSysColorBrush(COLOR_BTNFACE));
+
+    // Set text alignment and colors
+    SetTextAlign(memDC, TA_TOP | TA_CENTER | TA_NOUPDATECP);
+    SetTextColor(memDC, GetSysColor(COLOR_BTNTEXT));
+    SetBkColor(memDC, GetSysColor(COLOR_BTNFACE));
+    SetBkMode(memDC, TRANSPARENT);
+
     // Scale the font size with the window height
     cHeightClock = rect.bottom / 8;
     cHeightUptime = rect.bottom / 12;
-    hFontClock = CreateFont(
+
+    // Center the display in the window
+    displayHeight = cHeightClock + 3 * cHeightUptime;
+    x = rect.right / 2;
+    y = (rect.bottom - displayHeight) / 2;
+
+    // Use a larger font for the date and time
+    hFont = CreateFont(
         /* cHeight */           cHeightClock,
         /* cWidth */            0,
         /* cEscapement */       0,
@@ -266,7 +281,20 @@ PaintClockWindow(HCLOCKWINDOW window)
         /* iPitchAndFamily */   FF_DONTCARE,
         /* pszFaceName */       TEXT("MS Shell Dlg")
     );
-    hFontUptime = CreateFont(
+    if (hFont == NULL)
+        goto cleanup;
+
+    // Display the date and time
+    hOldObj = SelectObject(memDC, hFont);
+    TextOut(memDC, x, y, window->szClock, STRLEN(window->szClock));
+    SelectObject(memDC, hOldObj);
+    DeleteObject(hFont);
+
+    // Leave a blank line after the date and time
+    y += cHeightClock + cHeightUptime;
+
+    // Use a smaller font for the uptime
+    hFont = CreateFont(
         /* cHeight */           cHeightUptime,
         /* cWidth */            0,
         /* cEscapement */       0,
@@ -282,35 +310,16 @@ PaintClockWindow(HCLOCKWINDOW window)
         /* iPitchAndFamily */   FF_DONTCARE,
         /* pszFaceName */       TEXT("MS Shell Dlg")
     );
-    if ((hFontClock == NULL) || (hFontUptime == NULL))
+    if (hFont == NULL)
         goto cleanup;
 
-    // Center the display in the window
-    displayHeight = cHeightClock + 3 * cHeightUptime;
-    x = rect.right / 2;
-    y = (rect.bottom - displayHeight) / 2;
-
-    // Fill the window with the background color
-    FillRect(memDC, &rect, GetSysColorBrush(COLOR_BTNFACE));
-
-    // Set text alignment and colors
-    SetTextAlign(memDC, TA_TOP | TA_CENTER | TA_NOUPDATECP);
-    SetTextColor(memDC, GetSysColor(COLOR_BTNTEXT));
-    SetBkColor(memDC, GetSysColor(COLOR_BTNFACE));
-    SetBkMode(memDC, TRANSPARENT);
-
-    // Display the date and time
-    hOldObj = SelectObject(memDC, hFontClock);
-    TextOut(memDC, x, y, window->szClock, STRLEN(window->szClock));
-    y += cHeightClock + cHeightUptime;
-    SelectObject(memDC, hOldObj);
-
     // Display the system uptime
-    hOldObj = SelectObject(memDC, hFontUptime);
+    hOldObj = SelectObject(memDC, hFont);
     TextOut(memDC, x, y, UPTIME_LABEL, UPTIME_LABEL_LEN);
     y += cHeightUptime;
     TextOut(memDC, x, y, window->szUptime, STRLEN(window->szUptime));
     SelectObject(memDC, hOldObj);
+    DeleteObject(hFont);
 
     // Blit our changes back into the window's device context
     BitBlt(hdc, 0, 0, rect.right, rect.bottom, memDC, 0, 0, SRCCOPY);
@@ -318,8 +327,6 @@ PaintClockWindow(HCLOCKWINDOW window)
 cleanup:
     SelectObject(memDC, oldBM);
     DeleteDC(memDC);
-    DeleteObject(hFontUptime);
-    DeleteObject(hFontClock);
     DeleteObject(memBM);
     EndPaint(window->hwnd, &ps);
 }
